@@ -1,0 +1,22 @@
+[package]
+name = "ic-solidity-bindgen"
+version = "0.1.0"
+license = "MIT"
+description = "Generates bindings for solidity contracts. Uses web3 under the hood. This is a fork of graphprotocol/solidity-bindgen"
+categories = ["cryptography::cryptocurrencies", "development-tools::ffi"]
+edition = "2021"
+
+[badges]
+maintenance = { status = "experimental" }
+
+[dependencies]
+ic-solidity-bindgen-macros = { version="0.1.0", path = "../ic-solidity-bindgen-macros" }
+futures = "0.3.5"
+ethabi = "14.0.0"
+secp256k1 = "0.20.3"
+zeroize = "1.1.0"
+sodiumoxide = "0.2.5"
+async-trait = "0.1.50"
+ic-cdk = "0.7.4"
+hex = "0.4.3"
+ic-web3 = { git = "https://github.com/horizonx-tech/ic-web3" }
