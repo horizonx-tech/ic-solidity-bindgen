@@ -55,7 +55,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
     quote! {
         // "hygenic" ident for generic
         pub struct #struct_name<SolidityBindgenProvider> {
-            provider: ::std::sync::Arc<SolidityBindgenProvider>,
+            pub provider: ::std::sync::Arc<SolidityBindgenProvider>,
             pub address: ::ic_web3::types::Address,
         }
 
