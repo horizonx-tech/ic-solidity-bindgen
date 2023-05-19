@@ -1,5 +1,5 @@
-use ethabi::param_type::ParamType;
-use ethabi::{Function, StateMutability};
+use ic_web3::ethabi::param_type::ParamType;
+use ic_web3::ethabi::{Function, StateMutability};
 use inflector::cases::snakecase::to_snake_case;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::ToTokens as _;
@@ -34,7 +34,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
     let bytes = std::fs::read(path).unwrap();
 
     // See also 4cd1038f-56f2-4cf2-8dbe-672da9006083
-    let abis = ethabi::Contract::load(&bytes[..]).expect("Could not validate ABIs");
+    let abis = ic_web3::ethabi::Contract::load(&bytes[..]).expect("Could not validate ABIs");
     let abi_str = String::from_utf8(bytes).expect("Abis need to be valid UTF-8");
 
     let struct_name = ident(name);

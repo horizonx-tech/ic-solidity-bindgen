@@ -4,10 +4,7 @@ pub mod internal;
 
 mod context;
 mod providers;
-mod secrets;
 mod web3_provider;
-
-pub use secrets::SafeSecretKey;
 
 pub use providers::{CallProvider, SendProvider};
 pub use web3_provider::Web3Provider;
