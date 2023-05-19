@@ -16,6 +16,12 @@ pub struct Web3Provider {
     context: Web3Context,
 }
 
+impl Web3Provider {
+    pub fn contract(&self) -> ic_web3::ethabi::Contract {
+        self.contract.abi().clone()
+    }
+}
+
 #[async_trait]
 impl CallProvider for Web3Provider {
     async fn call<O: Detokenize + Unpin + Send, Params: Tokenize + Send>(
