@@ -1,4 +1,5 @@
 {
     "rust-analyzer.procMacro.enable": true,
-    "rust-analyzer.procMacro.attributes.enable": true
+    "rust-analyzer.procMacro.attributes.enable": true,
+    "rust-analyzer.trace.server": "verbose"
 }

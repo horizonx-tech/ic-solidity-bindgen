@@ -6,7 +6,7 @@ use ic_web3::contract::Contract;
 use ic_web3::contract::Options;
 use ic_web3::ic::{get_public_key, pubkey_to_address, KeyInfo};
 use ic_web3::transports::ICHttp;
-use ic_web3::types::{Address, TransactionReceipt};
+use ic_web3::types::{Address, TransactionReceipt, U64};
 use std::marker::Unpin;
 
 /// Mostly exists to map to the new futures.
@@ -92,17 +92,27 @@ impl SendProvider for Web3Provider {
         confirmations: Option<usize>,
     ) -> Result<Self::Out, ic_web3::Error> {
         let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
-
+        let gas_price = self.context.eth().gas_price().await?;
+        let nonce = self
+            .context
+            .eth()
+            .transaction_count(canister_addr, None)
+            .await?;
         self.contract
             .signed_call_with_confirmations(
                 func,
                 params,
                 match options {
-                    None => Default::default(),
+                    None => Options::with(|op| {
+                        op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
+                        op.gas_price = Some(gas_price);
+                        op.nonce = Some(nonce);
+                    }),
                     Some(options) => options,
                 },
                 hex::encode(canister_addr),
                 match confirmations {
+                    // TODO
                     // Num confirmations. From a library standpoint, this should be
                     // a parameter of the function. Choosing a correct value is very
                     // difficult, even for a consumer of the library as it would
@@ -110,7 +120,7 @@ impl SendProvider for Web3Provider {
                     // margins, and a number of other factors for which data may not
                     // be available. So just picking a pretty high security margin
                     // for now.
-                    None => 24,
+                    None => 12,
                     Some(confirmations) => confirmations,
                 },
                 KeyInfo {
