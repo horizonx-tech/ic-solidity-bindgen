@@ -6,8 +6,9 @@ use ic_web3::contract::Contract;
 use ic_web3::contract::Options;
 use ic_web3::ic::{get_public_key, pubkey_to_address, KeyInfo};
 use ic_web3::transports::ICHttp;
-use ic_web3::types::{Address, TransactionReceipt, U64};
+use ic_web3::types::{Address, BlockNumber, TransactionReceipt, U256, U64};
 use std::marker::Unpin;
+use std::ops::Div;
 
 /// Mostly exists to map to the new futures.
 /// This is the "untyped" API which the generated types will use.
@@ -98,6 +99,8 @@ impl SendProvider for Web3Provider {
             .eth()
             .transaction_count(canister_addr, None)
             .await?;
+        let latest_block = self.context.eth().block(BlockNumber::Latest.into()).await?;
+        let latest_block_gas_limit = latest_block.unwrap().gas_limit;
         self.contract
             .signed_call_with_confirmations(
                 func,
@@ -107,6 +110,9 @@ impl SendProvider for Web3Provider {
                         op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
                         op.gas_price = Some(gas_price);
                         op.nonce = Some(nonce);
+                        op.gas;
+                        // TODO: fix gas limit strategy
+                        op.gas = Some(latest_block_gas_limit.div(U256::from(10)))
                     }),
                     Some(options) => options,
                 },
