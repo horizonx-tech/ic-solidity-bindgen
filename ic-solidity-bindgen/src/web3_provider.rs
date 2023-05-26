@@ -107,7 +107,7 @@ impl SendProvider for Web3Provider {
                 params,
                 match options {
                     None => Options::with(|op| {
-                        op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
+                        //op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
                         op.gas_price = Some(gas_price);
                         op.nonce = Some(nonce);
                         op.gas;
