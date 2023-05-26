@@ -112,7 +112,7 @@ impl SendProvider for Web3Provider {
                         op.nonce = Some(nonce);
                         op.gas;
                         // TODO: fix gas limit strategy
-                        op.gas = Some(latest_block_gas_limit.div(U256::from(10)))
+                        op.gas = Some(latest_block_gas_limit.div(U256::from(10000000)))
                     }),
                     Some(options) => options,
                 },
