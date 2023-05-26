@@ -110,9 +110,8 @@ impl SendProvider for Web3Provider {
                         op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
                         op.gas_price = Some(gas_price);
                         op.nonce = Some(nonce);
-                        op.gas;
                         // TODO: fix gas limit strategy
-                        op.gas = Some(latest_block_gas_limit.div(U256::from(10000000)))
+                        op.gas = Some(latest_block_gas_limit.div(U256::from(100000)))
                     }),
                     Some(options) => options,
                 },
