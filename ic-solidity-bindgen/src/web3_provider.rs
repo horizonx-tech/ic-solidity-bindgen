@@ -99,19 +99,18 @@ impl SendProvider for Web3Provider {
             .eth()
             .transaction_count(canister_addr, None)
             .await?;
-        let latest_block = self.context.eth().block(BlockNumber::Latest.into()).await?;
-        let latest_block_gas_limit = latest_block.unwrap().gas_limit;
         self.contract
             .signed_call_with_confirmations(
                 func,
                 params,
                 match options {
                     None => Options::with(|op| {
-                        op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
+                        op.max_priority_fee_per_gas = Some(U256::from(10).pow(U256::from(8)) * 12);
                         op.gas_price = Some(gas_price);
+                        op.max_fee_per_gas =
+                            Some(gas_price + U256::from(10).pow(U256::from(9)) * 10);
+                        op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
                         op.nonce = Some(nonce);
-                        // TODO: fix gas limit strategy
-                        op.gas = Some(latest_block_gas_limit.div(U256::from(1000)))
                     }),
                     Some(options) => options,
                 },
