@@ -114,14 +114,9 @@ impl SendProvider for Web3Provider {
                 hex::encode(canister_addr),
                 match confirmations {
                     // TODO
-                    // Num confirmations. From a library standpoint, this should be
-                    // a parameter of the function. Choosing a correct value is very
-                    // difficult, even for a consumer of the library as it would
-                    // require assessing the value of the transaction, security
-                    // margins, and a number of other factors for which data may not
-                    // be available. So just picking a pretty high security margin
-                    // for now.
-                    None => 12,
+                    // to do confirmations, we need to fix eth_newBlockFilter
+                    // [Canister xxx] unlock result: Err(Rpc(Error { code: MethodNotFound, message: "the method eth_newBlockFilter does not exist/is not available", data: None }))
+                    None => 0,
                     Some(confirmations) => confirmations,
                 },
                 KeyInfo {
