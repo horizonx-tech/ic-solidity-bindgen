@@ -105,10 +105,7 @@ impl SendProvider for Web3Provider {
                 params,
                 match options {
                     None => Options::with(|op| {
-                        op.max_priority_fee_per_gas = Some(U256::from(10).pow(U256::from(8)) * 12);
                         op.gas_price = Some(gas_price);
-                        op.max_fee_per_gas =
-                            Some(gas_price + U256::from(10).pow(U256::from(9)) * 10);
                         op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
                         op.nonce = Some(nonce);
                     }),
