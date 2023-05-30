@@ -115,15 +115,33 @@ fn param_type(kind: &ParamType) -> (TokenStream, usize) {
         ParamType::Address => (quote! { ::ic_web3::types::Address }, 0),
         ParamType::Bytes => (quote! { ::std::vec::Vec<u8> }, 0),
         ParamType::Int(size) => match size {
-            256 => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
-            _ => (ident(format!("i{}", size)).to_token_stream(), 0),
+            129..=256 => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
+            65..=128 => (ident("i128").to_token_stream(), 0),
+            33..=64 => (ident("i64").to_token_stream(), 0),
+            17..=32 => (ident("i32").to_token_stream(), 0),
+            9..=16 => (ident("i16").to_token_stream(), 0),
+            1..=8 => (ident("i8").to_token_stream(), 0),
+            _ => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
         },
         ParamType::Uint(size) => match size {
-            256 => (quote! { ::ic_web3::types::U256 }, 0),
-            _ => {
-                let name = ident(format!("u{}", size));
+            129..=256 => (quote! { ::ic_web3::types::U256 }, 0),
+            65..=128 => {
+                let name = ident("u128");
                 (quote! { #name }, 0)
-            }
+            },
+            33..=64 => {
+                let name = ident("u64");
+                (quote! { #name }, 0)
+            },
+            17..=32 => {
+                let name = ident("u32");
+                (quote! { #name }, 0)
+            },
+            1..=16 => {
+                let name = ident("u16");
+                (quote! { #name }, 0)
+            },
+            _ => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
         },
         ParamType::Bool => (quote! { bool }, 0),
         ParamType::String => (quote! { ::std::string::String }, 0),
