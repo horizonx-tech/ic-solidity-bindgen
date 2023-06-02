@@ -1,25 +1,48 @@
 use crate::context::Web3Context;
 use crate::providers::{CallProvider, SendProvider};
+use crate::transform::TransformProcessorBuilder;
 use async_trait::async_trait;
+use ic_cdk::api::management_canister::http_request::{HttpResponse, TransformArgs};
 use ic_web3::contract::tokens::{Detokenize, Tokenize};
 use ic_web3::contract::Contract;
 use ic_web3::contract::Options;
 use ic_web3::ic::{get_public_key, pubkey_to_address, KeyInfo};
+use ic_web3::transports::ic_http_client::CallOptions;
 use ic_web3::transports::ICHttp;
-use ic_web3::types::{Address, BlockNumber, TransactionReceipt, U256, U64};
+use ic_web3::types::{Address, TransactionReceipt, U64};
+use std::future::Future;
 use std::marker::Unpin;
-use std::ops::Div;
 
+const RPC_CALL_MAX_RETRY: u8 = 3;
 /// Mostly exists to map to the new futures.
 /// This is the "untyped" API which the generated types will use.
 pub struct Web3Provider {
     contract: Contract<ICHttp>,
     context: Web3Context,
+    rpc_call_max_retry: u8,
 }
 
 impl Web3Provider {
     pub fn contract(&self) -> ic_web3::ethabi::Contract {
         self.contract.abi().clone()
+    }
+    async fn with_retry<T, E, Fut, F: FnMut() -> Fut>(&self, mut f: F) -> Result<T, E>
+    where
+        Fut: Future<Output = Result<T, E>>,
+    {
+        let mut count = 0;
+        loop {
+            let result = f().await;
+
+            if result.is_ok() {
+                break result;
+            } else {
+                if count > self.rpc_call_max_retry {
+                    break result;
+                }
+                count += 1;
+            }
+        }
     }
 }
 
@@ -82,6 +105,7 @@ pub async fn ethereum_address(key_name: String) -> Result<Address, String> {
     let pub_key = public_key(key_name).await?;
     to_ethereum_address(pub_key)
 }
+
 #[async_trait]
 impl SendProvider for Web3Provider {
     type Out = TransactionReceipt;
@@ -93,11 +117,15 @@ impl SendProvider for Web3Provider {
         confirmations: Option<usize>,
     ) -> Result<Self::Out, ic_web3::Error> {
         let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
-        let gas_price = self.context.eth().gas_price().await?;
+        let gas_price = self
+            .with_retry(|| self.context.eth().gas_price(CallOptions::default()))
+            .await?;
         let nonce = self
-            .context
-            .eth()
-            .transaction_count(canister_addr, None)
+            .with_retry(|| {
+                self.context
+                    .eth()
+                    .transaction_count(canister_addr, None, CallOptions::default())
+            })
             .await?;
         self.contract
             .signed_call_with_confirmations(
@@ -138,6 +166,13 @@ impl Web3Provider {
         // See also 4cd1038f-56f2-4cf2-8dbe-672da9006083
         let contract = Contract::from_json(context.eth(), contract_address, json_abi).unwrap();
 
-        Self { contract, context }
+        Self {
+            contract,
+            context,
+            rpc_call_max_retry: RPC_CALL_MAX_RETRY,
+        }
+    }
+    pub fn set_max_retry(&mut self, max_retry: u8) {
+        self.rpc_call_max_retry = max_retry;
     }
 }
