@@ -217,6 +217,7 @@ pub fn fn_from_abi(function: &Function) -> TokenStream {
         .iter()
         .enumerate()
         .map(|(i, param)| ident(to_rust_name("input", &param.name, i)).into_token_stream());
+
     let params = if function.inputs.len() == 1 {
         quote! { #(#params)* }
     } else {
@@ -269,9 +270,12 @@ pub fn fn_from_abi(function: &Function) -> TokenStream {
         Method::Call => quote! { self.provider.call(#eth_name, #params).await },
         Method::Send => quote! { self.provider.send(#eth_name, #params, None, None).await },
     };
+    let options = ident("options");
+    let options_type = quote! { Option<::ic_web3::contract::Options> };
+    let options_param = quote! { #options: #options_type };
 
     quote! {
-        pub async fn #rust_name(&self, #(#params_in),*) -> ::std::result::Result<#ok, ::ic_web3::Error> {
+        pub async fn #rust_name(&self, #(#params_in,)* #options_param) -> ::std::result::Result<#ok, ::ic_web3::Error>  {
             #fn_call
         }
     }
