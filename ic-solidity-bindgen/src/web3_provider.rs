@@ -1,8 +1,6 @@
 use crate::context::Web3Context;
 use crate::providers::{CallProvider, SendProvider};
-use crate::transform::TransformProcessorBuilder;
 use async_trait::async_trait;
-use ic_cdk::api::management_canister::http_request::{HttpResponse, TransformArgs};
 use ic_web3::contract::tokens::{Detokenize, Tokenize};
 use ic_web3::contract::Contract;
 use ic_web3::contract::Options;
