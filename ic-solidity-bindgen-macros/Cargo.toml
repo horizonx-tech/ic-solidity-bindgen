@@ -3,9 +3,7 @@ name = "ic-solidity-bindgen-macros"
 version = "0.1.0"
 description = "A proc macro crate internal to ic-solidity-bindgen"
 edition = "2021"
-
-[badges]
-maintenance = { status = "experimental" }
+categories = ["cryptography::cryptocurrencies", "dfinity", "icp", "web3", "ethereum", "rpc"]
 
 [lib]
 proc-macro = true
