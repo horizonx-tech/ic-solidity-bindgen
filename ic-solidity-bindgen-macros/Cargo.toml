@@ -1,9 +1,10 @@
 [package]
 name = "ic-solidity-bindgen-macros"
 version = "0.1.0"
+license = "MIT"
 description = "A proc macro crate internal to ic-solidity-bindgen"
-edition = "2021"
 categories = ["dfinity", "icp", "web3", "ethereum", "rpc"]
+edition = "2021"
 
 [lib]
 proc-macro = true
