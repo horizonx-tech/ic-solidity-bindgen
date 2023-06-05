@@ -1,7 +1,14 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
-use ic_web3::contract::tokens::{Detokenize, Tokenize};
-use ic_web3::contract::Options;
-use ic_web3::Error;
+use ic_web3_rs::contract::tokens::{Detokenize, Tokenize};
+use ic_web3_rs::contract::{Contract, Options};
+use ic_web3_rs::ethabi::Log;
+use ic_web3_rs::transports::ic_http_client::CallOptions;
+use ic_web3_rs::transports::ICHttp;
+use ic_web3_rs::types::Log as EthLog;
+use ic_web3_rs::types::H256;
+use ic_web3_rs::Error;
 
 #[async_trait]
 pub trait CallProvider {
@@ -21,5 +28,22 @@ pub trait SendProvider {
         params: Params,
         options: Option<Options>,
         confirmations: Option<usize>,
-    ) -> Result<Self::Out, ic_web3::Error>;
+    ) -> Result<Self::Out, ic_web3_rs::Error>;
+}
+
+#[async_trait]
+pub trait LogProvider {
+    async fn find(
+        &self,
+        contract: Contract<ICHttp>,
+        event_name: &str,
+        from: u64,
+        to: u64,
+        call_options: CallOptions,
+    ) -> Result<HashMap<u64, Vec<EventLog>>, ic_web3_rs::Error>;
+}
+
+pub struct EventLog {
+    pub event: Log,
+    pub log: EthLog,
 }

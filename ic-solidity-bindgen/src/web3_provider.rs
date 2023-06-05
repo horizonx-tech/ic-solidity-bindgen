@@ -1,13 +1,16 @@
 use crate::context::Web3Context;
-use crate::providers::{CallProvider, SendProvider};
+use crate::providers::{CallProvider, EventLog, LogProvider, SendProvider};
 use async_trait::async_trait;
-use ic_web3::contract::tokens::{Detokenize, Tokenize};
-use ic_web3::contract::Contract;
-use ic_web3::contract::Options;
-use ic_web3::ic::{get_public_key, pubkey_to_address, KeyInfo};
-use ic_web3::transports::ic_http_client::CallOptions;
-use ic_web3::transports::ICHttp;
-use ic_web3::types::{Address, TransactionReceipt, U64};
+use ic_web3_rs::contract::tokens::{Detokenize, Tokenize};
+use ic_web3_rs::contract::Options;
+use ic_web3_rs::contract::{self, Contract};
+use ic_web3_rs::ethabi::{RawLog, Topic, TopicFilter};
+use ic_web3_rs::ic::{get_public_key, pubkey_to_address, KeyInfo};
+use ic_web3_rs::transports::ic_http_client::CallOptions;
+use ic_web3_rs::transports::ICHttp;
+use ic_web3_rs::types::{Address, BlockNumber, FilterBuilder, TransactionReceipt, H256, U64};
+use ic_web3_rs::Transport;
+use std::collections::HashMap;
 use std::future::Future;
 use std::marker::Unpin;
 
@@ -21,7 +24,7 @@ pub struct Web3Provider {
 }
 
 impl Web3Provider {
-    pub fn contract(&self) -> ic_web3::ethabi::Contract {
+    pub fn contract(&self) -> ic_web3_rs::ethabi::Contract {
         self.contract.abi().clone()
     }
     async fn with_retry<T, E, Fut, F: FnMut() -> Fut>(&self, mut f: F) -> Result<T, E>
@@ -50,7 +53,7 @@ impl CallProvider for Web3Provider {
         &self,
         name: &'static str,
         params: Params,
-    ) -> Result<O, ic_web3::Error> {
+    ) -> Result<O, ic_web3_rs::Error> {
         match self
             .contract
             .query(
@@ -64,7 +67,7 @@ impl CallProvider for Web3Provider {
         {
             Ok(v) => Ok(v),
             Err(e) => match e {
-                ic_web3::contract::Error::Api(e) => Err(e),
+                ic_web3_rs::contract::Error::Api(e) => Err(e),
                 // The other variants InvalidOutputType and Abi should be
                 // prevented by the code gen. It is useful to convert the error
                 // type to be restricted to the web3::Error type for a few
@@ -104,6 +107,67 @@ pub async fn ethereum_address(key_name: String) -> Result<Address, String> {
     to_ethereum_address(pub_key)
 }
 
+fn event_sig<T: Transport>(contract: &Contract<T>, name: &str) -> Result<H256, String> {
+    contract
+        .abi()
+        .event(name)
+        .map(|e| e.signature())
+        .map_err(|e| (format!("event {} not found in contract abi: {}", name, e)))
+}
+
+#[async_trait]
+impl LogProvider for Web3Provider {
+    async fn find(
+        &self,
+        contract: Contract<ICHttp>,
+        event_name: &str,
+        from: u64,
+        to: u64,
+        call_options: CallOptions,
+    ) -> Result<HashMap<u64, Vec<EventLog>>, ic_web3_rs::Error> {
+        let parser = contract.abi().event(event_name).unwrap();
+        let logs = self
+            .context
+            .eth()
+            .logs(
+                FilterBuilder::default()
+                    .from_block(BlockNumber::Number(from.into()))
+                    .to_block(BlockNumber::Number(to.into()))
+                    .address(vec![contract.address()])
+                    .topic_filter(TopicFilter {
+                        topic0: Topic::This(event_sig(&contract, event_name).unwrap()),
+                        topic1: Topic::Any,
+                        topic2: Topic::Any,
+                        topic3: Topic::Any,
+                    })
+                    .build(),
+                call_options,
+            )
+            .await
+            .unwrap()
+            .into_iter()
+            .filter(|log| !log.removed.unwrap_or_default())
+            .filter(|log| log.transaction_index.is_some())
+            .filter(|log| log.block_hash.is_some())
+            .map(|log| EventLog {
+                event: parser
+                    .parse_log(RawLog {
+                        data: log.data.0.clone(),
+                        topics: log.topics.clone(),
+                    })
+                    .unwrap(),
+                log,
+            })
+            .fold(HashMap::new(), |mut acc, event| {
+                let block = event.log.block_number.unwrap().as_u64();
+                let events = acc.entry(block).or_insert_with(Vec::new);
+                events.push(event);
+                acc
+            });
+        Ok(logs)
+    }
+}
+
 #[async_trait]
 impl SendProvider for Web3Provider {
     type Out = TransactionReceipt;
@@ -113,7 +177,7 @@ impl SendProvider for Web3Provider {
         params: Params,
         options: Option<Options>,
         confirmations: Option<usize>,
-    ) -> Result<Self::Out, ic_web3::Error> {
+    ) -> Result<Self::Out, ic_web3_rs::Error> {
         let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
         let gas_price = self
             .with_retry(|| self.context.eth().gas_price(CallOptions::default()))

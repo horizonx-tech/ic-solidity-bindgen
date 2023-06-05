@@ -1,8 +1,8 @@
 use crate::Web3Provider;
-use ic_web3::api::Eth;
-use ic_web3::transports::ICHttp;
-use ic_web3::types::Address;
-use ic_web3::Web3;
+use ic_web3_rs::api::Eth;
+use ic_web3_rs::transports::ICHttp;
+use ic_web3_rs::types::Address;
+use ic_web3_rs::Web3;
 use std::sync::Arc;
 
 /// Common data associated with multiple contracts.
@@ -30,7 +30,7 @@ impl Web3Context {
         from: Address,
         chain_id: u64,
         key_name: String,
-    ) -> Result<Self, ic_web3::error::Error> {
+    ) -> Result<Self, ic_web3_rs::error::Error> {
         let transport = ICHttp::new(url, None)?;
         let web3 = Web3::new(transport);
         let eth = web3.eth();

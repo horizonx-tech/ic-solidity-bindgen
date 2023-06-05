@@ -1,5 +1,5 @@
-use ic_web3::ethabi::param_type::ParamType;
-use ic_web3::ethabi::{Function, StateMutability};
+use ic_web3_rs::ethabi::param_type::ParamType;
+use ic_web3_rs::ethabi::{Event, Function, StateMutability};
 use inflector::cases::snakecase::to_snake_case;
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::ToTokens as _;
@@ -34,13 +34,14 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
     let bytes = std::fs::read(path).unwrap();
 
     // See also 4cd1038f-56f2-4cf2-8dbe-672da9006083
-    let abis = ic_web3::ethabi::Contract::load(&bytes[..]).expect("Could not validate ABIs");
+    let abis = ic_web3_rs::ethabi::Contract::load(&bytes[..]).expect("Could not validate ABIs");
     let abi_str = String::from_utf8(bytes).expect("Abis need to be valid UTF-8");
 
     let struct_name = ident(name);
 
     let mut send_fns = Vec::new();
     let mut call_fns = Vec::new();
+    let mut get_logs_fns: Vec<TokenStream> = Vec::new();
 
     for f in abis.functions() {
         let dest = match method(f) {
@@ -56,7 +57,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
         // "hygenic" ident for generic
         pub struct #struct_name<SolidityBindgenProvider> {
             pub provider: ::std::sync::Arc<SolidityBindgenProvider>,
-            pub address: ::ic_web3::types::Address,
+            pub address: ::ic_web3_rs::types::Address,
         }
 
         impl<SolidityBindgenProvider> ::std::clone::Clone for #struct_name<SolidityBindgenProvider> {
@@ -69,7 +70,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
         }
 
         impl<SolidityBindgenProvider> #struct_name<SolidityBindgenProvider> {
-            pub fn new<Context>(address: ::ic_web3::types::Address, context: &Context) -> Self where Context: ::ic_solidity_bindgen::Context<Provider = SolidityBindgenProvider> {
+            pub fn new<Context>(address: ::ic_web3_rs::types::Address, context: &Context) -> Self where Context: ::ic_solidity_bindgen::Context<Provider = SolidityBindgenProvider> {
                 // Embed ABI into the program
                 let abi = #abi_str;
 
@@ -91,10 +92,10 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
             pub async fn send(
                 &self,
                 func: &'static str,
-                params: impl ic_web3::contract::tokens::Tokenize + Send,
-                options: Option<::ic_web3::contract::Options>,
+                params: impl ic_web3_rs::contract::tokens::Tokenize + Send,
+                options: Option<::ic_web3_rs::contract::Options>,
                 confirmations: Option<usize>,
-            ) -> Result<SolidityBindgenProvider::Out, ::ic_web3::Error> {
+            ) -> Result<SolidityBindgenProvider::Out, ::ic_web3_rs::Error> {
                 self.provider.send(func, params, options, confirmations).await
             }
 
@@ -112,7 +113,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
 /// Returns the tokens for the type, as well as the level of nesting of the tuples for a hack.
 fn param_type(kind: &ParamType) -> (TokenStream, usize) {
     match kind {
-        ParamType::Address => (quote! { ::ic_web3::types::Address }, 0),
+        ParamType::Address => (quote! { ::ic_web3_rs::types::Address }, 0),
         ParamType::Bytes => (quote! { ::std::vec::Vec<u8> }, 0),
         ParamType::Int(size) => match size {
             129..=256 => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
@@ -124,23 +125,23 @@ fn param_type(kind: &ParamType) -> (TokenStream, usize) {
             _ => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
         },
         ParamType::Uint(size) => match size {
-            129..=256 => (quote! { ::ic_web3::types::U256 }, 0),
+            129..=256 => (quote! { ::ic_web3_rs::types::U256 }, 0),
             65..=128 => {
                 let name = ident("u128");
                 (quote! { #name }, 0)
-            },
+            }
             33..=64 => {
                 let name = ident("u64");
                 (quote! { #name }, 0)
-            },
+            }
             17..=32 => {
                 let name = ident("u32");
                 (quote! { #name }, 0)
-            },
+            }
             1..=16 => {
                 let name = ident("u16");
                 (quote! { #name }, 0)
-            },
+            }
             _ => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
         },
         ParamType::Bool => (quote! { bool }, 0),
@@ -180,6 +181,26 @@ pub fn to_rust_name(type_name: &str, eth_name: &str, i: usize) -> String {
     } else {
         to_snake_case(eth_name)
     }
+}
+
+pub fn event_from_abi(event: &Event) -> TokenStream {
+    let eth_name = &event.name;
+    // params are from:u64, to:u64 call_options: CallOptions.
+    let from_param = ident(to_rust_name("u64", "from", 0));
+    let to_param = ident(to_rust_name("u64", "to", 1));
+    let options = ident("options");
+    let options_type = quote! { Option<::ic_web3_rs::contract::Options> };
+    let options_param = quote! { #options: #options_type };
+    quote! {
+    pub async fn #eth_name(
+        &self,
+        #from_param: u64,
+        #to_param: u64,
+        #options_param,
+        confirmations: Option<usize>,
+    ) -> Result<::ic_web3_rs::types::Log, ::ic_web3_rs::Error> {
+        self.provider.find(#eth_name, #from_param, #to_param, #options, confirmations).await
+    }}
 }
 
 pub fn fn_from_abi(function: &Function) -> TokenStream {
@@ -271,11 +292,11 @@ pub fn fn_from_abi(function: &Function) -> TokenStream {
         Method::Send => quote! { self.provider.send(#eth_name, #params, None, None).await },
     };
     let options = ident("options");
-    let options_type = quote! { Option<::ic_web3::contract::Options> };
+    let options_type = quote! { Option<::ic_web3_rs::contract::Options> };
     let options_param = quote! { #options: #options_type };
 
     quote! {
-        pub async fn #rust_name(&self, #(#params_in,)* #options_param) -> ::std::result::Result<#ok, ::ic_web3::Error>  {
+        pub async fn #rust_name(&self, #(#params_in,)* #options_param) -> ::std::result::Result<#ok, ::ic_web3_rs::Error>  {
             #fn_call
         }
     }
