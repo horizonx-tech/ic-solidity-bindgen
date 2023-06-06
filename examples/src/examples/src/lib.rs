@@ -7,7 +7,7 @@ use ic_cdk::{
 };
 use ic_solidity_bindgen::{contract_abis, Web3Context, Web3Provider};
 use ic_web3_rs::{ethabi::Address, transports::ic_http_client::CallOptions, types::U256};
-contract_abis!("src/examples/abis");
+contract_abis!("abis");
 
 const DAI_ADDRESS: &str = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
 
