@@ -44,12 +44,12 @@ fn addr_of(addr: &str) -> Address {
 }
 
 #[ic_cdk::update]
-async fn balance() -> String {
-    erc20_contract()
+async fn balance() -> WrappedU256 {
+    let val = erc20_contract()
         .balance_of(curve_pool_addr(), None)
         .await
-        .unwrap()
-        .to_string()
+        .unwrap();
+    WrappedU256::from(val)
 }
 
 #[ic_cdk::update]
