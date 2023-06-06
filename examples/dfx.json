@@ -1,0 +1,22 @@
+{
+  "canisters": {
+    "examples": {
+      "candid": "src/examples/examples.did",
+      "package": "examples",
+      "type": "rust"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "networks": {
+    "local": {
+      "type": "ephemeral"
+    }
+  },
+  "version": 1
+}

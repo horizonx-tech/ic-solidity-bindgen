@@ -1,0 +1,18 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+candid = "0.8"
+ic-cdk = "0.7"
+ic-cdk-timers = "0.1" # Feel free to remove this dependency if you don't need timers
+ic-solidity-bindgen = { path = "../../../ic-solidity-bindgen" }
+ic-web3-rs = "0.1.0"
+serde = "1.0.163"
+serde_derive = "1.0.163"

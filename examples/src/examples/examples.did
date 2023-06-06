@@ -1,0 +1,13 @@
+type TransformArgs = record { context : vec nat8; response : HttpResponse };
+type HttpHeader = record { value : text; name : text };
+type HttpResponse = record {
+  status : nat;
+  body : vec nat8;
+  headers : vec HttpHeader;
+};
+type WrappedU256 = record { value : text };
+service : {
+    "balance": () -> (text);
+    transform : (TransformArgs) -> (HttpResponse) query;
+    "find_total_transfer_amount_between":(nat64,nat64) -> (WrappedU256);
+}
