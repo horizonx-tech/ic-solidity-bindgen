@@ -3,7 +3,7 @@ name = "ic-solidity-bindgen-macros"
 version = "0.1.0"
 license = "MIT"
 description = "A proc macro crate internal to ic-solidity-bindgen"
-categories = ["dfinity", "icp", "web3", "ethereum", "rpc"]
+keywords = ["dfinity", "icp", "web3", "ethereum", "rpc"]
 edition = "2021"
 
 [lib]

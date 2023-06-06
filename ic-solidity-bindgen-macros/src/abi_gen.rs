@@ -53,6 +53,11 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
         dest.push(f);
     }
 
+    for e in abis.events() {
+        let f = event_from_abi(e);
+        get_logs_fns.push(f);
+    }
+
     quote! {
         // "hygenic" ident for generic
         pub struct #struct_name<SolidityBindgenProvider> {
@@ -105,6 +110,11 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
         impl<SolidityBindgenProvider> #struct_name<SolidityBindgenProvider>
             where SolidityBindgenProvider: ::ic_solidity_bindgen::CallProvider {
                 #(#call_fns)*
+        }
+
+        impl<SolidityBindgenProvider> #struct_name<SolidityBindgenProvider>
+        where SolidityBindgenProvider: ::ic_solidity_bindgen::LogProvider {
+            #(#get_logs_fns)*
         }
     }
 }
@@ -185,21 +195,24 @@ pub fn to_rust_name(type_name: &str, eth_name: &str, i: usize) -> String {
 
 pub fn event_from_abi(event: &Event) -> TokenStream {
     let eth_name = &event.name;
-    // params are from:u64, to:u64 call_options: CallOptions.
-    let from_param = ident(to_rust_name("u64", "from", 0));
-    let to_param = ident(to_rust_name("u64", "to", 1));
-    let options = ident("options");
-    let options_type = quote! { Option<::ic_web3_rs::contract::Options> };
-    let options_param = quote! { #options: #options_type };
+    let rust_name = ident(to_rust_name(
+        "function",
+        format!("event_{}", eth_name).as_str(),
+        0,
+    ));
     quote! {
-    pub async fn #eth_name(
+    pub async fn #rust_name(
         &self,
-        #from_param: u64,
-        #to_param: u64,
-        #options_param,
-        confirmations: Option<usize>,
-    ) -> Result<::ic_web3_rs::types::Log, ::ic_web3_rs::Error> {
-        self.provider.find(#eth_name, #from_param, #to_param, #options, confirmations).await
+        from: u64,
+        to: u64,
+        options: ::ic_web3_rs::transports::ic_http_client::CallOptions,
+    ) -> Result<std::collections::HashMap<u64, std::vec::Vec<ic_solidity_bindgen::types::EventLog>>, ::ic_web3_rs::Error> {
+        self.provider.find(
+            #eth_name,
+            from,
+            to,
+            options
+        ).await
     }}
 }
 

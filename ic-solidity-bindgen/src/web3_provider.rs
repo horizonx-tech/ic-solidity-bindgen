@@ -1,9 +1,10 @@
 use crate::context::Web3Context;
-use crate::providers::{CallProvider, EventLog, LogProvider, SendProvider};
+use crate::providers::{CallProvider, LogProvider, SendProvider};
+use crate::types::EventLog;
 use async_trait::async_trait;
 use ic_web3_rs::contract::tokens::{Detokenize, Tokenize};
+use ic_web3_rs::contract::Contract;
 use ic_web3_rs::contract::Options;
-use ic_web3_rs::contract::{self, Contract};
 use ic_web3_rs::ethabi::{RawLog, Topic, TopicFilter};
 use ic_web3_rs::ic::{get_public_key, pubkey_to_address, KeyInfo};
 use ic_web3_rs::transports::ic_http_client::CallOptions;
@@ -119,13 +120,12 @@ fn event_sig<T: Transport>(contract: &Contract<T>, name: &str) -> Result<H256, S
 impl LogProvider for Web3Provider {
     async fn find(
         &self,
-        contract: Contract<ICHttp>,
         event_name: &str,
         from: u64,
         to: u64,
         call_options: CallOptions,
     ) -> Result<HashMap<u64, Vec<EventLog>>, ic_web3_rs::Error> {
-        let parser = contract.abi().event(event_name).unwrap();
+        let parser = self.contract.abi().event(event_name).unwrap();
         let logs = self
             .context
             .eth()
@@ -133,9 +133,9 @@ impl LogProvider for Web3Provider {
                 FilterBuilder::default()
                     .from_block(BlockNumber::Number(from.into()))
                     .to_block(BlockNumber::Number(to.into()))
-                    .address(vec![contract.address()])
+                    .address(vec![self.contract.address()])
                     .topic_filter(TopicFilter {
-                        topic0: Topic::This(event_sig(&contract, event_name).unwrap()),
+                        topic0: Topic::This(event_sig(&self.contract, event_name).unwrap()),
                         topic1: Topic::Any,
                         topic2: Topic::Any,
                         topic3: Topic::Any,
