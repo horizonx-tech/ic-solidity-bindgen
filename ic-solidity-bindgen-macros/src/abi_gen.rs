@@ -27,9 +27,9 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
     let name = path
         .as_ref()
         .file_stem()
-        .unwrap()
+        .expect("File name needs to be valid UTF-8")
         .to_str()
-        .unwrap()
+        .expect("File name needs to be valid UTF-8")
         .to_owned();
     let bytes = std::fs::read(path).unwrap();
 

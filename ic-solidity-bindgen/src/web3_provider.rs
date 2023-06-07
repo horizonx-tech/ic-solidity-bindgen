@@ -125,7 +125,11 @@ impl LogProvider for Web3Provider {
         to: u64,
         call_options: CallOptions,
     ) -> Result<HashMap<u64, Vec<EventLog>>, ic_web3_rs::Error> {
-        let parser = self.contract.abi().event(event_name).unwrap();
+        let parser = self
+            .contract
+            .abi()
+            .event(event_name)
+            .map_err(|_| ic_web3_rs::Error::Internal)?;
         let logs = self
             .context
             .eth()
@@ -143,8 +147,7 @@ impl LogProvider for Web3Provider {
                     .build(),
                 call_options,
             )
-            .await
-            .unwrap()
+            .await?
             .into_iter()
             .filter(|log| !log.removed.unwrap_or_default())
             .filter(|log| log.transaction_index.is_some())
