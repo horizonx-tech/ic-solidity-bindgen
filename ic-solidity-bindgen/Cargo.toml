@@ -10,7 +10,7 @@ edition = "2021"
 maintenance = { status = "experimental" }
 
 [dependencies]
-ic-solidity-bindgen-macros = { version="0.1.6", path = "../ic-solidity-bindgen-macros" }
+ic-solidity-bindgen-macros = { version="0.1.7", path = "../ic-solidity-bindgen-macros" }
 async-trait = "0.1.50"
 ic-cdk = "^0.8"
 hex = "0.4.3"
