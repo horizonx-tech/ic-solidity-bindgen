@@ -182,28 +182,32 @@ impl SendProvider for Web3Provider {
         confirmations: Option<usize>,
     ) -> Result<Self::Out, ic_web3_rs::Error> {
         let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
-        let gas_price = self
-            .with_retry(|| self.context.eth().gas_price(CallOptions::default()))
-            .await?;
-        let nonce = self
-            .with_retry(|| {
-                self.context
-                    .eth()
-                    .transaction_count(canister_addr, None, CallOptions::default())
-            })
-            .await?;
+        let call_option = match options {
+            None => {
+                let gas_price = self
+                .with_retry(|| self.context.eth().gas_price(CallOptions::default()))
+                .await?;
+            let nonce = self
+                .with_retry(|| {
+                    self.context
+                        .eth()
+                        .transaction_count(canister_addr, None, CallOptions::default())
+                })
+                .await?;
+                Options::with(|op| {
+                    op.gas_price = Some(gas_price);
+                    op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID for default
+                    op.nonce = Some(nonce);
+                })
+            },
+            Some(options) => options,
+        };
+
         self.contract
             .signed_call_with_confirmations(
                 func,
                 params,
-                match options {
-                    None => Options::with(|op| {
-                        op.gas_price = Some(gas_price);
-                        op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID
-                        op.nonce = Some(nonce);
-                    }),
-                    Some(options) => options,
-                },
+                call_option,
                 hex::encode(canister_addr),
                 match confirmations {
                     // TODO
