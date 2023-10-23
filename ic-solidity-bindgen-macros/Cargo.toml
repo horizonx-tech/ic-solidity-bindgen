@@ -1,6 +1,6 @@
 [package]
 name = "ic-solidity-bindgen-macros"
-version = "0.1.6"
+version = "0.1.7"
 license = "MIT"
 description = "A proc macro crate internal to ic-solidity-bindgen"
 keywords = ["dfinity", "icp", "web3", "ethereum", "rpc"]

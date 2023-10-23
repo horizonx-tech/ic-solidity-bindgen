@@ -302,7 +302,7 @@ pub fn fn_from_abi(function: &Function) -> TokenStream {
 
     let fn_call = match method {
         Method::Call => quote! { self.provider.call(#eth_name, #params).await },
-        Method::Send => quote! { self.provider.send(#eth_name, #params, None, None).await },
+        Method::Send => quote! { self.provider.send(#eth_name, #params, options, None).await },
     };
     let options = ident("options");
     let options_type = quote! { Option<::ic_web3_rs::contract::Options> };
