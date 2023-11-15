@@ -2,5 +2,5 @@
 
 members = [
     "./ic-solidity-bindgen",
-    "./ic-solidity-bindgen-macros",
+    "./ic-solidity-bindgen-macros"
 ]

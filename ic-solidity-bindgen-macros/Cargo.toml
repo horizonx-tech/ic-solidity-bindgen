@@ -1,6 +1,6 @@
 [package]
 name = "ic-solidity-bindgen-macros"
-version = "0.1.8"
+version = "0.1.9"
 license = "MIT"
 description = "A proc macro crate internal to ic-solidity-bindgen"
 keywords = ["dfinity", "icp", "web3", "ethereum", "rpc"]
@@ -16,4 +16,4 @@ proc-macro2 = "1.0.10"
 Inflector = "0.11.4"
 serde = { version = "1.0.106", features = ["derive"] }
 serde_json = "1.0.51"
-ic-web3-rs = "0.1.2"
+ic-web3-rs = { git = "https://github.com/horizonx-tech/ic-web3-rs.git", branch = "topic/ic-cdk-0.11"}

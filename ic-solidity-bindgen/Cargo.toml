@@ -1,6 +1,6 @@
 [package]
 name = "ic-solidity-bindgen"
-version = "0.1.8"
+version = "0.1.9"
 license = "MIT"
 description = "Generates bindings for solidity contracts. Uses web3 under the hood. This is a fork of graphprotocol/solidity-bindgen"
 keywords = ["dfinity", "icp", "web3", "ethereum", "rpc"]
@@ -12,8 +12,8 @@ maintenance = { status = "experimental" }
 [dependencies]
 ic-solidity-bindgen-macros = { version="0.1.8", path = "../ic-solidity-bindgen-macros" }
 async-trait = "0.1.50"
-ic-cdk = "^0.8"
+ic-cdk = "^0.11"
 hex = "0.4.3"
-ic-web3-rs = "0.1.2"
+ic-web3-rs = { git = "https://github.com/horizonx-tech/ic-web3-rs.git", branch = "topic/ic-cdk-0.11"}
 serde_json = "1.0.96"
 derive_builder = "0.12.0"
