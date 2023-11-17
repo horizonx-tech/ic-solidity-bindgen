@@ -10,10 +10,11 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-syn = "1.0.18"
-quote = "1.0.3"
-proc-macro2 = "1.0.10"
+ic-web3-rs.workspace = true
+serde_json.workspace = true
+
 Inflector = "0.11.4"
+proc-macro2 = "1.0.10"
+quote = "1.0.3"
 serde = { version = "1.0.106", features = ["derive"] }
-serde_json = "1.0.51"
-ic-web3-rs = { git = "https://github.com/horizonx-tech/ic-web3-rs.git", branch = "topic/ic-cdk-0.11"}
+syn = "1.0.18"
