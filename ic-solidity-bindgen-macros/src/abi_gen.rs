@@ -126,7 +126,7 @@ fn param_type(kind: &ParamType) -> (TokenStream, usize) {
         ParamType::Address => (quote! { ::ic_web3_rs::types::Address }, 0),
         ParamType::Bytes => (quote! { ::std::vec::Vec<u8> }, 0),
         ParamType::Int(size) => match size {
-            129..=256 => (quote! { ::ic_solidity_bindgen::internal::Unimplemented }, 0),
+            129..=256 => (quote! { ::ic_web3_rs::types::I256 }, 0),
             65..=128 => (ident("i128").to_token_stream(), 0),
             33..=64 => (ident("i64").to_token_stream(), 0),
             17..=32 => (ident("i32").to_token_stream(), 0),
