@@ -10,7 +10,7 @@ fn ident<S: Borrow<str>>(name: S) -> Ident {
     Ident::new(name.borrow(), Span::call_site())
 }
 
-#[derive(Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 enum Method {
     Send,
     Call,
@@ -37,20 +37,28 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
     let abis = ic_web3_rs::ethabi::Contract::load(&bytes[..]).expect("Could not validate ABIs");
     let abi_str = String::from_utf8(bytes).expect("Abis need to be valid UTF-8");
 
-    let struct_name = ident(name);
+    let struct_name = ident(name.clone());
+    let static_caller = format_ident!("{}StaticCaller", name);
 
     let mut send_fns = Vec::new();
     let mut call_fns = Vec::new();
+    let mut static_call_fns = Vec::new();
     let mut get_logs_fns: Vec<TokenStream> = Vec::new();
 
     for f in abis.functions() {
-        let dest = match method(f) {
-            Method::Call => &mut call_fns,
-            Method::Send => &mut send_fns,
-        };
+        let method = method(f);
+        let f_token = fn_from_abi(f);
+        match method {
+            Method::Call => call_fns.push(f_token),
+            Method::Send => {
+                send_fns.push(f_token);
 
-        let f = fn_from_abi(f);
-        dest.push(f);
+                // Generate a static caller for each send function
+                let mut f_for_static_call = f.clone();
+                f_for_static_call.state_mutability = StateMutability::View; // Force change to have function generated for Call
+                static_call_fns.push(fn_from_abi(&f_for_static_call));
+            },
+        }
     }
 
     for e in abis.events() {
@@ -63,6 +71,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
         pub struct #struct_name<SolidityBindgenProvider> {
             pub provider: ::std::sync::Arc<SolidityBindgenProvider>,
             pub address: ::ic_web3_rs::types::Address,
+            pub static_call: #static_caller<SolidityBindgenProvider>,
         }
 
         impl<SolidityBindgenProvider> ::std::clone::Clone for #struct_name<SolidityBindgenProvider> {
@@ -70,6 +79,7 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
                 Self {
                     provider: ::std::clone::Clone::clone(&self.provider),
                     address: self.address,
+                    static_call: ::std::clone::Clone::clone(&self.static_call),
                 }
             }
         }
@@ -84,7 +94,10 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
                 let provider = ::std::sync::Arc::new(provider);
                 Self {
                     address,
-                    provider,
+                    provider: provider.clone(),
+                    static_call: #static_caller {
+                        provider: provider.clone(),
+                    },
                 }
             }
         }
@@ -115,6 +128,25 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
         impl<SolidityBindgenProvider> #struct_name<SolidityBindgenProvider>
         where SolidityBindgenProvider: ::ic_solidity_bindgen::LogProvider {
             #(#get_logs_fns)*
+        }
+
+        pub struct #static_caller<SolidityBindgenProvider> {
+            pub provider: ::std::sync::Arc<SolidityBindgenProvider>,
+        }
+
+        impl<SolidityBindgenProvider> ::std::clone::Clone for #static_caller<SolidityBindgenProvider> {
+            fn clone(&self) -> Self {
+                Self {
+                    provider: ::std::clone::Clone::clone(&self.provider),
+                }
+            }
+        }
+
+        impl<SolidityBindgenProvider> #static_caller<SolidityBindgenProvider>
+        where
+            SolidityBindgenProvider: ::ic_solidity_bindgen::CallProvider
+        {
+            #(#static_call_fns)*
         }
     }
 }
