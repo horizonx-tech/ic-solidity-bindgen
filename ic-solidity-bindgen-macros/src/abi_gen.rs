@@ -54,9 +54,9 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
                 send_fns.push(f_token);
 
                 // Generate a static caller for each send function
-                let mut duplicated_f = f.clone();
-                duplicated_f.state_mutability = StateMutability::View;
-                static_call_fns.push(fn_from_abi(&duplicated_f));
+                let mut f_for_static_call = f.clone();
+                f_for_static_call.state_mutability = StateMutability::View; // Force change to have function generated for Call
+                static_call_fns.push(fn_from_abi(&f_for_static_call));
             },
         }
     }
