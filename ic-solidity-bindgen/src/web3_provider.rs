@@ -185,7 +185,7 @@ impl SendProvider for Web3Provider {
         let call_option = match options {
             None => {
                 let gas_price = self
-                .with_retry(|| self.context.eth().gas_price(CallOptions::default()))
+                .with_retry(|| self.context.eth().max_priority_fee_per_gas(CallOptions::default()))
                 .await?;
             let nonce = self
                 .with_retry(|| {
@@ -195,7 +195,7 @@ impl SendProvider for Web3Provider {
                 })
                 .await?;
                 Options::with(|op| {
-                    op.gas_price = Some(gas_price);
+                    op.max_priority_fee_per_gas = Some(gas_price);
                     op.transaction_type = Some(U64::from(2)); // EIP1559_TX_ID for default
                     op.nonce = Some(nonce);
                 })
