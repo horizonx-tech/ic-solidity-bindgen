@@ -186,16 +186,19 @@ impl Web3Provider {
                     .transaction_count(self.context.from(), None, CallOptions::default())
             })
             .await?;
-        let max_fee_per_gas = max_priority_fee_per_gas + current_block.base_fee_per_gas.unwrap() - U256::from(1);
 
         Ok(Options {
-            max_fee_per_gas: Some(max_fee_per_gas),
+            max_fee_per_gas: Some(calc_max_fee_per_gas(max_priority_fee_per_gas, current_block.base_fee_per_gas.unwrap_or_default())),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             nonce: Some(nonce),
             transaction_type: Some(U64::from(2)), // EIP1559_TX_ID for default
             ..Default::default()
         })
     }
+}
+
+fn calc_max_fee_per_gas(max_priority_fee_per_gas: U256, base_fee_per_gas: U256) -> U256 {
+    max_priority_fee_per_gas + (base_fee_per_gas * U256::from(2))
 }
 
 #[async_trait]
