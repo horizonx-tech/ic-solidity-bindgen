@@ -172,7 +172,7 @@ impl LogProvider for Web3Provider {
 }
 
 impl Web3Provider {
-    async fn build_eip_1559_tx_params(&self) -> Result<Options, ic_web3_rs::Error> {
+    pub async fn build_eip_1559_tx_params(&self) -> Result<Options, ic_web3_rs::Error> {
         let eth = self.context.eth();
         let current_block = self.with_retry(||{
             eth.block(BlockId::Number(BlockNumber::Latest), CallOptions::default())
