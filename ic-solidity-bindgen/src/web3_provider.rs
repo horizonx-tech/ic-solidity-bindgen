@@ -172,7 +172,7 @@ impl LogProvider for Web3Provider {
 }
 
 impl Web3Provider {
-    async fn build_eip_1559_tx_params(&self) -> Result<Options, ic_web3_rs::Error> {
+    pub async fn build_eip_1559_tx_params(&self) -> Result<Options, ic_web3_rs::Error> {
         let eth = self.context.eth();
         let current_block = self.with_retry(||{
             eth.block(BlockId::Number(BlockNumber::Latest), CallOptions::default())
@@ -203,13 +203,12 @@ fn calc_max_fee_per_gas(max_priority_fee_per_gas: U256, base_fee_per_gas: U256) 
 
 #[async_trait]
 impl SendProvider for Web3Provider {
-    type Out = TransactionReceipt;
+    type Out = H256;
     async fn send<Params: Tokenize + Send>(
         &self,
         func: &'static str,
         params: Params,
         options: Option<Options>,
-        confirmations: Option<usize>,
     ) -> Result<Self::Out, ic_web3_rs::Error> {
         let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
         let call_option = match options {
@@ -218,18 +217,11 @@ impl SendProvider for Web3Provider {
         };
 
         self.contract
-            .signed_call_with_confirmations(
+            .signed_call(
                 func,
                 params,
                 call_option,
                 hex::encode(canister_addr),
-                match confirmations {
-                    // TODO
-                    // to do confirmations, we need to fix eth_newBlockFilter
-                    // [Canister xxx] unlock result: Err(Rpc(Error { code: MethodNotFound, message: "the method eth_newBlockFilter does not exist/is not available", data: None }))
-                    None => 0,
-                    Some(confirmations) => confirmations,
-                },
                 KeyInfo {
                     derivation_path: vec![default_derivation_key()],
                     key_name: self.context.key_name().to_string(),

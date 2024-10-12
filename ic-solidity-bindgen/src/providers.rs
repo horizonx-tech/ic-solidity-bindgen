@@ -25,7 +25,6 @@ pub trait SendProvider {
         func: &'static str,
         params: Params,
         options: Option<Options>,
-        confirmations: Option<usize>,
     ) -> Result<Self::Out, ic_web3_rs::Error>;
 }
 

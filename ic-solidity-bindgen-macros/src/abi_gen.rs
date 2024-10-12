@@ -112,9 +112,8 @@ pub fn abi_from_file(path: impl AsRef<Path>) -> TokenStream {
                 func: &'static str,
                 params: impl ic_web3_rs::contract::tokens::Tokenize + Send,
                 options: Option<::ic_web3_rs::contract::Options>,
-                confirmations: Option<usize>,
             ) -> Result<SolidityBindgenProvider::Out, ::ic_web3_rs::Error> {
-                self.provider.send(func, params, options, confirmations).await
+                self.provider.send(func, params, options).await
             }
 
             #(#send_fns)*
@@ -334,7 +333,7 @@ pub fn fn_from_abi(function: &Function) -> TokenStream {
 
     let fn_call = match method {
         Method::Call => quote! { self.provider.call(#eth_name, #params).await },
-        Method::Send => quote! { self.provider.send(#eth_name, #params, options, None).await },
+        Method::Send => quote! { self.provider.send(#eth_name, #params, options).await },
     };
     let options = ident("options");
     let options_type = quote! { Option<::ic_web3_rs::contract::Options> };
