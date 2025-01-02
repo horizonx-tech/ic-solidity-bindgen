@@ -30,8 +30,9 @@ impl Web3Context {
         from: Address,
         chain_id: u64,
         key_name: String,
+        max_resp: Option<u64>,
     ) -> Result<Self, ic_web3_rs::error::Error> {
-        let transport = ICHttp::new(url, None)?;
+        let transport = ICHttp::new(url, max_resp)?;
         let web3 = Web3::new(transport);
         let eth = web3.eth();
         let inner = Web3ContextInner {
