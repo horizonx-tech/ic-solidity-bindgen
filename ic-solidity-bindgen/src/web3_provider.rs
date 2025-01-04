@@ -9,7 +9,9 @@ use ic_web3_rs::ethabi::{RawLog, Topic, TopicFilter};
 use ic_web3_rs::ic::{get_public_key, pubkey_to_address, KeyInfo};
 use ic_web3_rs::transports::ic_http_client::CallOptions;
 use ic_web3_rs::transports::ICHttp;
-use ic_web3_rs::types::{Address, BlockId, BlockNumber, FilterBuilder, TransactionReceipt, H256, U256, U64};
+use ic_web3_rs::types::{
+    Address, BlockId, BlockNumber, FilterBuilder, TransactionReceipt, H256, U256, U64,
+};
 use ic_web3_rs::Transport;
 use std::collections::HashMap;
 use std::future::Future;
@@ -174,21 +176,27 @@ impl LogProvider for Web3Provider {
 impl Web3Provider {
     pub async fn build_eip_1559_tx_params(&self) -> Result<Options, ic_web3_rs::Error> {
         let eth = self.context.eth();
-        let current_block = self.with_retry(||{
-            eth.block(BlockId::Number(BlockNumber::Latest), CallOptions::default())
-        }).await?.expect("block not found");
+        let current_block = self
+            .with_retry(|| eth.block(BlockId::Number(BlockNumber::Latest), CallOptions::default()))
+            .await?;
+        if current_block.is_none() {
+            return Err(ic_web3_rs::Error::InvalidResponse(
+                "No block returned".to_string(),
+            ));
+        }
+        let current_block = current_block.unwrap();
         let max_priority_fee_per_gas = self
             .with_retry(|| eth.max_priority_fee_per_gas(CallOptions::default()))
             .await?;
         let nonce = self
-            .with_retry(|| {
-                eth
-                    .transaction_count(self.context.from(), None, CallOptions::default())
-            })
+            .with_retry(|| eth.transaction_count(self.context.from(), None, CallOptions::default()))
             .await?;
 
         Ok(Options {
-            max_fee_per_gas: Some(calc_max_fee_per_gas(max_priority_fee_per_gas, current_block.base_fee_per_gas.unwrap_or_default())),
+            max_fee_per_gas: Some(calc_max_fee_per_gas(
+                max_priority_fee_per_gas,
+                current_block.base_fee_per_gas.unwrap_or_default(),
+            )),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             nonce: Some(nonce),
             transaction_type: Some(U64::from(2)), // EIP1559_TX_ID for default
