@@ -232,7 +232,7 @@ impl SendProvider for Web3Provider {
         params: Params,
         options: Option<Options>,
     ) -> Result<Self::Out, ic_web3_rs::Error> {
-        let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
+        let canister_addr = self.context.from();
         let call_option = match options {
             Some(options) => options,
             None => self.build_eip_1559_tx_params().await?,
