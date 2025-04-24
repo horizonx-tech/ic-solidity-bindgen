@@ -1,21 +1,21 @@
-use crate::context::Web3Context;
-use crate::providers::{CallProvider, LogProvider, SendProvider};
-use crate::types::EventLog;
-use async_trait::async_trait;
-use ic_web3_rs::contract::tokens::{Detokenize, Tokenize};
-use ic_web3_rs::contract::Contract;
-use ic_web3_rs::contract::Options;
-use ic_web3_rs::ethabi::{RawLog, Topic, TopicFilter};
-use ic_web3_rs::ic::{get_public_key, pubkey_to_address, KeyInfo};
-use ic_web3_rs::transports::ic_http_client::CallOptions;
-use ic_web3_rs::transports::ICHttp;
-use ic_web3_rs::types::{
-    Address, BlockId, BlockNumber, FilterBuilder, TransactionReceipt, H256, U256, U64,
+use crate::{
+    context::Web3Context,
+    providers::{CallProvider, LogProvider, SendProvider},
+    types::EventLog,
 };
-use ic_web3_rs::Transport;
-use std::collections::HashMap;
-use std::future::Future;
-use std::marker::Unpin;
+use async_trait::async_trait;
+use ic_web3_rs::{
+    contract::{
+        tokens::{Detokenize, Tokenize},
+        Contract, Options,
+    },
+    ethabi::{RawLog, Topic, TopicFilter},
+    ic::{get_public_key, pubkey_to_address, KeyInfo},
+    transports::{ic_http_client::CallOptions, ICHttp},
+    types::{Address, BlockId, BlockNumber, FilterBuilder, H256, U256, U64},
+    Transport,
+};
+use std::{collections::HashMap, future::Future, marker::Unpin};
 
 const RPC_CALL_MAX_RETRY: u8 = 3;
 /// Mostly exists to map to the new futures.
@@ -203,6 +203,20 @@ impl Web3Provider {
             ..Default::default()
         })
     }
+    pub async fn estimate_gas<P>(
+        &self,
+        func: &str,
+        params: P,
+        from: Address,
+        options: Options,
+    ) -> Result<U256, ic_web3_rs::contract::Error>
+    where
+        P: Tokenize,
+    {
+        self.contract
+            .estimate_gas(func, params, from, options)
+            .await
+    }
 }
 
 fn calc_max_fee_per_gas(max_priority_fee_per_gas: U256, base_fee_per_gas: U256) -> U256 {
@@ -218,7 +232,7 @@ impl SendProvider for Web3Provider {
         params: Params,
         options: Option<Options>,
     ) -> Result<Self::Out, ic_web3_rs::Error> {
-        let canister_addr = ethereum_address(self.context.key_name().to_string()).await?;
+        let canister_addr = self.context.from();
         let call_option = match options {
             Some(options) => options,
             None => self.build_eip_1559_tx_params().await?,
