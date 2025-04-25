@@ -4,6 +4,7 @@ use crate::{
     types::EventLog,
 };
 use async_trait::async_trait;
+use ic_cdk::api::management_canister::http_request::{TransformContext, TransformFunc};
 use ic_web3_rs::{
     contract::{
         tokens::{Detokenize, Tokenize},
@@ -11,7 +12,7 @@ use ic_web3_rs::{
     },
     ethabi::{RawLog, Topic, TopicFilter},
     ic::{get_public_key, pubkey_to_address, KeyInfo},
-    transports::{ic_http_client::CallOptions, ICHttp},
+    transports::{ic_http::CallOptionsBuilder, ic_http_client::CallOptions, ICHttp},
     types::{Address, BlockId, BlockNumber, FilterBuilder, H256, U256, U64},
     Transport,
 };
@@ -185,24 +186,34 @@ impl Web3Provider {
             ));
         }
         let current_block = current_block.unwrap();
-        let max_priority_fee_per_gas = self
-            .with_retry(|| eth.max_priority_fee_per_gas(CallOptions::default()))
-            .await?;
-        let nonce = self
-            .with_retry(|| eth.transaction_count(self.context.from(), None, CallOptions::default()))
-            .await?;
-
-        Ok(Options {
-            max_fee_per_gas: Some(calc_max_fee_per_gas(
-                max_priority_fee_per_gas,
-                current_block.base_fee_per_gas.unwrap_or_default(),
-            )),
-            max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
-            nonce: Some(nonce),
-            transaction_type: Some(U64::from(2)), // EIP1559_TX_ID for default
-            ..Default::default()
-        })
+        self._build_eip_1559_tx_params(current_block.base_fee_per_gas.unwrap_or_default())
+            .await
     }
+
+    pub async fn build_eip_1559_tx_params_with_fee_history(
+        &self,
+    ) -> Result<Options, ic_web3_rs::Error> {
+        let eth = self.context.eth();
+        let fee_history = self
+            .with_retry(|| {
+                eth.fee_history(
+                    U256::one(),
+                    BlockNumber::Latest,
+                    None,
+                    CallOptions::default(),
+                )
+            })
+            .await?;
+        self._build_eip_1559_tx_params(
+            fee_history
+                .base_fee_per_gas
+                .get(0)
+                .map(|f| *f)
+                .unwrap_or_default(),
+        )
+        .await
+    }
+
     pub async fn estimate_gas<P>(
         &self,
         func: &str,
@@ -216,6 +227,30 @@ impl Web3Provider {
         self.contract
             .estimate_gas(func, params, from, options)
             .await
+    }
+
+    async fn _build_eip_1559_tx_params(
+        &self,
+        base_fee_per_gas: U256,
+    ) -> Result<Options, ic_web3_rs::Error> {
+        let eth = self.context.eth();
+        let max_priority_fee_per_gas = self
+            .with_retry(|| eth.max_priority_fee_per_gas(CallOptions::default()))
+            .await?;
+        let nonce = self
+            .with_retry(|| eth.transaction_count(self.context.from(), None, CallOptions::default()))
+            .await?;
+
+        Ok(Options {
+            max_fee_per_gas: Some(calc_max_fee_per_gas(
+                max_priority_fee_per_gas,
+                base_fee_per_gas,
+            )),
+            max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
+            nonce: Some(nonce),
+            transaction_type: Some(U64::from(2)), // EIP1559_TX_ID for default
+            ..Default::default()
+        })
     }
 }
 
