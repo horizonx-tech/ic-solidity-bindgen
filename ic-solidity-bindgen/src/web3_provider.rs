@@ -1,19 +1,21 @@
 use crate::{
     context::Web3Context,
     providers::{CallProvider, LogProvider, SendProvider},
+    rpc_methods::EVMRpcMethod,
     types::EventLog,
 };
 use async_trait::async_trait;
 use ic_web3_rs::{
+    api::Namespace,
     contract::{
         tokens::{Detokenize, Tokenize},
         Contract, Options,
     },
     ethabi::{RawLog, Topic, TopicFilter},
-    ic::{get_public_key, pubkey_to_address, KeyInfo},
+    ic::KeyInfo,
     transports::{ic_http_client::CallOptions, ICHttp},
-    types::{Address, BlockId, BlockNumber, FilterBuilder, H256, U256, U64},
-    Transport,
+    types::{Address, BlockId, BlockNumber, FeeHistory, FilterBuilder, H256, U256, U64},
+    BatchTransport, Transport,
 };
 use std::{collections::HashMap, future::Future, marker::Unpin};
 
@@ -91,25 +93,6 @@ pub fn default_derivation_key() -> Vec<u8> {
     ic_cdk::id().as_slice().to_vec()
 }
 
-async fn public_key(key_name: String) -> Result<Vec<u8>, String> {
-    get_public_key(
-        None,
-        vec![default_derivation_key()],
-        // tmp: this should be a random string
-        key_name,
-    )
-    .await
-}
-
-fn to_ethereum_address(pub_key: Vec<u8>) -> Result<Address, String> {
-    pubkey_to_address(&pub_key)
-}
-
-pub async fn ethereum_address(key_name: String) -> Result<Address, String> {
-    let pub_key = public_key(key_name).await?;
-    to_ethereum_address(pub_key)
-}
-
 fn event_sig<T: Transport>(contract: &Contract<T>, name: &str) -> Result<H256, String> {
     contract
         .abi()
@@ -185,17 +168,68 @@ impl Web3Provider {
             ));
         }
         let current_block = current_block.unwrap();
-        let max_priority_fee_per_gas = self
-            .with_retry(|| eth.max_priority_fee_per_gas(CallOptions::default()))
+        self._build_eip_1559_tx_params(current_block.base_fee_per_gas.unwrap_or_default())
+            .await
+    }
+
+    pub async fn build_eip_1559_tx_params_with_fee_history(
+        &self,
+    ) -> Result<Options, ic_web3_rs::Error> {
+        let eth = self.context.eth();
+        let fee_history = self
+            .with_retry(|| {
+                eth.fee_history(
+                    U256::one(),
+                    BlockNumber::Latest,
+                    None,
+                    CallOptions::default(),
+                )
+            })
             .await?;
-        let nonce = self
-            .with_retry(|| eth.transaction_count(self.context.from(), None, CallOptions::default()))
-            .await?;
+        self._build_eip_1559_tx_params(
+            fee_history
+                .base_fee_per_gas
+                .get(0)
+                .map(|f| *f)
+                .unwrap_or_default(),
+        )
+        .await
+    }
+
+    pub async fn build_eip_1559_tx_params_with_batch(&self) -> Result<Options, ic_web3_rs::Error> {
+        let requests = vec![
+            EVMRpcMethod::FeeHistory(U256::one(), BlockNumber::Latest, None),
+            EVMRpcMethod::MaxPriorityFeePerGas,
+            EVMRpcMethod::TransactionCount(self.context.from(), None),
+        ];
+        let resp = self.batch_call(&requests).await?;
+
+        let (ok, err) = resp.into_iter().partition::<Vec<_>, _>(Result::is_ok);
+        if !err.is_empty() {
+            return Err(ic_web3_rs::error::Error::InvalidResponse(format!(
+                "Some method failed: {err:?}"
+            )));
+        }
+        if ok.len() != requests.len() {
+            return Err(ic_web3_rs::error::Error::InvalidResponse(format!(
+                "Some method not responded. response={ok:?}"
+            )));
+        }
+
+        let mut ok = ok.into_iter().filter_map(Result::ok).collect::<Vec<_>>();
+        let fee_history: FeeHistory = serde_json::from_value(ok.remove(0))?;
+        let base_fee_per_gas = fee_history
+            .base_fee_per_gas
+            .get(0)
+            .map(|f| *f)
+            .unwrap_or_default();
+        let max_priority_fee_per_gas: U256 = serde_json::from_value(ok.remove(0))?;
+        let nonce = serde_json::from_value(ok.remove(0))?;
 
         Ok(Options {
             max_fee_per_gas: Some(calc_max_fee_per_gas(
                 max_priority_fee_per_gas,
-                current_block.base_fee_per_gas.unwrap_or_default(),
+                base_fee_per_gas,
             )),
             max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
             nonce: Some(nonce),
@@ -203,6 +237,37 @@ impl Web3Provider {
             ..Default::default()
         })
     }
+
+    pub async fn build_legacy_tx_params_with_batch(&self) -> Result<Options, ic_web3_rs::Error> {
+        let requests = vec![
+            EVMRpcMethod::GasPrice,
+            EVMRpcMethod::TransactionCount(self.context.from(), None),
+        ];
+        let resp = self.batch_call(&requests).await?;
+
+        let (ok, err) = resp.into_iter().partition::<Vec<_>, _>(Result::is_ok);
+        if !err.is_empty() {
+            return Err(ic_web3_rs::error::Error::InvalidResponse(format!(
+                "Some method failed: {err:?}"
+            )));
+        }
+        if ok.len() != requests.len() {
+            return Err(ic_web3_rs::error::Error::InvalidResponse(format!(
+                "Some method not responded. response={ok:?}"
+            )));
+        }
+
+        let mut ok = ok.into_iter().filter_map(Result::ok).collect::<Vec<_>>();
+        let gas_price: U256 = serde_json::from_value(ok.remove(0))?;
+        let nonce = serde_json::from_value(ok.remove(0))?;
+
+        Ok(Options {
+            gas_price: Some(gas_price),
+            nonce: Some(nonce),
+            ..Default::default()
+        })
+    }
+
     pub async fn estimate_gas<P>(
         &self,
         func: &str,
@@ -216,6 +281,43 @@ impl Web3Provider {
         self.contract
             .estimate_gas(func, params, from, options)
             .await
+    }
+
+    pub async fn batch_call(
+        &self,
+        calls: &Vec<EVMRpcMethod>,
+    ) -> Result<Vec<Result<serde_json::Value, ic_web3_rs::Error>>, ic_web3_rs::Error> {
+        let transport = self.context.eth().transport();
+        let calls = calls
+            .into_iter()
+            .map(|c| transport.prepare(c.method(), c.params()))
+            .collect::<Vec<_>>();
+
+        transport.send_batch(calls).await
+    }
+
+    async fn _build_eip_1559_tx_params(
+        &self,
+        base_fee_per_gas: U256,
+    ) -> Result<Options, ic_web3_rs::Error> {
+        let eth = self.context.eth();
+        let max_priority_fee_per_gas = self
+            .with_retry(|| eth.max_priority_fee_per_gas(CallOptions::default()))
+            .await?;
+        let nonce = self
+            .with_retry(|| eth.transaction_count(self.context.from(), None, CallOptions::default()))
+            .await?;
+
+        Ok(Options {
+            max_fee_per_gas: Some(calc_max_fee_per_gas(
+                max_priority_fee_per_gas,
+                base_fee_per_gas,
+            )),
+            max_priority_fee_per_gas: Some(max_priority_fee_per_gas),
+            nonce: Some(nonce),
+            transaction_type: Some(U64::from(2)), // EIP1559_TX_ID for default
+            ..Default::default()
+        })
     }
 }
 
@@ -261,7 +363,8 @@ impl Web3Provider {
 
         // All of the ABIs are verified at compile time, so we can just unwrap here.
         // See also 4cd1038f-56f2-4cf2-8dbe-672da9006083
-        let contract = Contract::from_json(context.eth(), contract_address, json_abi).unwrap();
+        let contract =
+            Contract::from_json(context.eth().clone(), contract_address, json_abi).unwrap();
 
         Self {
             contract,

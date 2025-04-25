@@ -48,8 +48,8 @@ impl Web3Context {
         self.0.from
     }
 
-    pub(crate) fn eth(&self) -> Eth<ICHttp> {
-        self.0.eth.clone()
+    pub(crate) fn eth(&self) -> &Eth<ICHttp> {
+        &self.0.eth
     }
     pub fn chain_id(&self) -> u64 {
         self.0.chain_id

@@ -1,6 +1,6 @@
 [package]
 name = "ic-solidity-bindgen"
-version = "0.1.22"
+version = "0.1.23"
 license = "MIT"
 description = "Generates bindings for solidity contracts. Uses web3 under the hood. This is a fork of graphprotocol/solidity-bindgen"
 keywords = ["dfinity", "icp", "web3", "ethereum", "rpc"]
@@ -18,3 +18,4 @@ derive_builder = "0.12.0"
 hex = "0.4.3"
 ic-cdk = "0.13.2"
 ic-solidity-bindgen-macros = "0.1.17"
+jsonrpc-core = "18.0.0"
