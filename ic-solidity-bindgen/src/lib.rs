@@ -6,6 +6,7 @@ mod context;
 mod providers;
 pub mod types;
 mod web3_provider;
+pub mod rpc_methods;
 
 pub use providers::{CallProvider, LogProvider, SendProvider};
 pub use web3_provider::Web3Provider;
