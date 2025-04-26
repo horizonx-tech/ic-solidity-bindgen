@@ -3,6 +3,7 @@ use crate::{
     providers::{CallProvider, LogProvider, SendProvider},
     rpc_methods::EVMRpcMethod,
     types::EventLog,
+    Context,
 };
 use async_trait::async_trait;
 use ic_web3_rs::{
@@ -327,7 +328,7 @@ fn calc_max_fee_per_gas(max_priority_fee_per_gas: U256, base_fee_per_gas: U256) 
 
 #[async_trait]
 impl SendProvider for Web3Provider {
-    type Out = H256;
+    type Out = (H256, Option<ic_web3_rs::Error>);
     async fn send<Params: Tokenize + Send>(
         &self,
         func: &'static str,
@@ -340,11 +341,16 @@ impl SendProvider for Web3Provider {
             None => self.build_eip_1559_tx_params().await?,
         };
 
-        self.contract
-            .signed_call(
+        let send_option = call_option.call_options;
+        let signed_tx = self
+            .contract
+            .sign(
                 func,
                 params,
-                call_option,
+                Options {
+                    call_options: None,
+                    ..call_option
+                },
                 hex::encode(canister_addr),
                 KeyInfo {
                     derivation_path: vec![default_derivation_key()],
@@ -353,7 +359,13 @@ impl SendProvider for Web3Provider {
                 },
                 self.context.chain_id(),
             )
-            .await
+            .await?;
+        let res = self
+            .context
+            .eth()
+            .send_raw_transaction(signed_tx.raw_transaction, send_option.unwrap_or_default())
+            .await;
+        Ok((signed_tx.transaction_hash, res.err()))
     }
 }
 
