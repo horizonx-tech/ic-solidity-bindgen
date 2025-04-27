@@ -3,7 +3,6 @@ use crate::{
     providers::{CallProvider, LogProvider, SendProvider},
     rpc_methods::EVMRpcMethod,
     types::EventLog,
-    Context,
 };
 use async_trait::async_trait;
 use ic_web3_rs::{
@@ -201,7 +200,7 @@ impl Web3Provider {
         let requests = vec![
             EVMRpcMethod::FeeHistory(U256::one(), BlockNumber::Latest, None),
             EVMRpcMethod::MaxPriorityFeePerGas,
-            EVMRpcMethod::TransactionCount(self.context.from(), None),
+            EVMRpcMethod::TransactionCount(self.context.from(), BlockNumber::Latest),
         ];
         let resp = self.batch_call(&requests).await?;
 
@@ -242,7 +241,7 @@ impl Web3Provider {
     pub async fn build_legacy_tx_params_with_batch(&self) -> Result<Options, ic_web3_rs::Error> {
         let requests = vec![
             EVMRpcMethod::GasPrice,
-            EVMRpcMethod::TransactionCount(self.context.from(), None),
+            EVMRpcMethod::TransactionCount(self.context.from(), BlockNumber::Latest),
         ];
         let resp = self.batch_call(&requests).await?;
 

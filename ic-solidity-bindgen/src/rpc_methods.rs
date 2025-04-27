@@ -5,7 +5,7 @@ use ic_web3_rs::{
 use serde_json::Value;
 
 pub enum EVMRpcMethod {
-    TransactionCount(Address, Option<BlockNumber>),
+    TransactionCount(Address, BlockNumber),
     GasPrice,
     /// BlockCount, BlockTag, RewardPercentile
     FeeHistory(U256, BlockNumber, Option<Vec<f64>>),
